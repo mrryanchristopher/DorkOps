@@ -27,7 +27,7 @@ export default function App() {
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-3-flash-preview",
         contents: `Translate the following plain English search intent into 3 to 5 highly precise Google Dorks. 
         Include advanced operators (site:, filetype:, inurl:, intitle:, etc.) and boolean logic where needed.
         
