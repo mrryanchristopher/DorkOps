@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and usage tracking",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "User ID"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "isPro": {
+          "type": "boolean",
+          "description": "Whether the user has a Pro subscription"
+        },
+        "dailySearches": {
+          "type": "number",
+          "description": "Number of searches performed today"
+        },
+        "lastSearchDate": {
+          "type": "string",
+          "description": "Date of the last search (YYYY-MM-DD)"
+        }
+      },
+      "required": ["uid", "email", "isPro", "dailySearches", "lastSearchDate"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Stores user profiles and usage limits"
+    }
+  }
+}

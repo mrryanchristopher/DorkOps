@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { X, CheckCircle2, Loader2 } from "lucide-react";
+import { User } from "firebase/auth";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
 declare global {
   interface Window {
@@ -13,7 +16,7 @@ declare global {
   }
 }
 
-export function SubscriptionModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export function SubscriptionModal({ isOpen, onClose, user }: { isOpen: boolean; onClose: () => void; user: User | null }) {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
 
@@ -32,6 +35,12 @@ export function SubscriptionModal({ isOpen, onClose }: { isOpen: boolean; onClos
         });
 
         if (!response.ok) throw new Error("Backend verification failed");
+        
+        // Update user profile in Firestore
+        if (user) {
+          const userRef = doc(db, "users", user.uid);
+          await updateDoc(userRef, { isPro: true });
+        }
         
         setStatus("success");
       } catch (error) {
@@ -52,11 +61,17 @@ export function SubscriptionModal({ isOpen, onClose }: { isOpen: boolean; onClos
       delete window.onPurchaseComplete;
       delete window.onPurchaseError;
     };
-  }, []);
+  }, [user]);
 
   if (!isOpen) return null;
 
   const handleSubscribe = () => {
+    if (!user) {
+      setStatus("error");
+      setErrorMessage("You must be logged in to subscribe.");
+      return;
+    }
+
     setStatus("loading");
     setErrorMessage("");
     

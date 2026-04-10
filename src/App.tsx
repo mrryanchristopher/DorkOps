@@ -1,12 +1,17 @@
-import React, { useState, FormEvent } from "react";
-import { Terminal, Sparkles, BookOpen, Crown, Loader2, ShieldAlert } from "lucide-react";
+import React, { useState, FormEvent, useEffect } from "react";
+import { Terminal, Sparkles, BookOpen, Crown, Loader2, ShieldAlert, LogIn, LogOut } from "lucide-react";
 import { GoogleGenAI, Type } from "@google/genai";
 import { TutorialModal } from "./components/TutorialModal";
 import { SubscriptionModal } from "./components/SubscriptionModal";
 import { DorkResult } from "./components/DorkResult";
+import { auth, db, signInWithGoogle, logOut } from "./firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
 
 // Initialize Gemini API in the frontend
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const DAILY_LIMIT = 5;
 
 export default function App() {
   const [query, setQuery] = useState("");
@@ -17,9 +22,81 @@ export default function App() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isSubOpen, setIsSubOpen] = useState(false);
 
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) {
+        setUserProfile(null);
+        setIsAuthReady(true);
+      }
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const userRef = doc(db, "users", user.uid);
+    
+    // First, ensure the document exists and handle daily reset
+    const initProfile = async () => {
+      const userSnap = await getDoc(userRef);
+      const today = new Date().toISOString().split('T')[0];
+
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        if (data.lastSearchDate !== today) {
+          await updateDoc(userRef, {
+            dailySearches: 0,
+            lastSearchDate: today
+          });
+        }
+      } else {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email || "",
+          isPro: false,
+          dailySearches: 0,
+          lastSearchDate: today
+        });
+      }
+    };
+
+    initProfile().then(() => {
+      // Then listen for real-time updates
+      const unsubscribeSnapshot = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setUserProfile(docSnap.data());
+        }
+        setIsAuthReady(true);
+      }, (error) => {
+        console.error("Firestore Error: ", error);
+        setIsAuthReady(true);
+      });
+
+      return () => unsubscribeSnapshot();
+    });
+
+  }, [user]);
+
   const handleGenerate = async (e: FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
+
+    if (!user) {
+      setError("Authentication required. Please log in to generate Dorks.");
+      return;
+    }
+
+    if (userProfile && !userProfile.isPro && userProfile.dailySearches >= DAILY_LIMIT) {
+      setIsSubOpen(true);
+      setError(`Daily limit reached (${DAILY_LIMIT}/${DAILY_LIMIT}). Upgrade to Pro for unlimited access.`);
+      return;
+    }
 
     setIsGenerating(true);
     setError("");
@@ -27,7 +104,7 @@ export default function App() {
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: userProfile?.isPro ? "gemini-3.1-pro-preview" : "gemini-3-flash-preview",
         contents: `Translate the following plain English search intent into 3 to 5 highly precise Google Dorks. 
         Include advanced operators (site:, filetype:, inurl:, intitle:, etc.) and boolean logic where needed.
         
@@ -65,6 +142,14 @@ export default function App() {
 
       const jsonResult = JSON.parse(resultText);
       setResults(jsonResult);
+
+      // Increment usage
+      if (userProfile && !userProfile.isPro) {
+        const userRef = doc(db, "users", user.uid);
+        const newCount = userProfile.dailySearches + 1;
+        await updateDoc(userRef, { dailySearches: newCount });
+      }
+
     } catch (err: any) {
       console.error("Error generating dorks:", err);
       let errorMessage = "Failed to generate dorks. Please try again.";
@@ -77,18 +162,49 @@ export default function App() {
     }
   };
 
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-neon animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen text-slate-200 font-sans flex flex-col selection:bg-neon selection:text-black">
       {/* Header */}
       <header className="border-b border-neon/30 bg-black/80 sticky top-0 z-10 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg border border-neon/50 bg-neon/10 flex items-center justify-center shadow-[0_0_10px_rgba(57,255,20,0.2)]">
-              <ShieldAlert className="w-6 h-6 text-neon" />
+            <div className="w-10 h-10 rounded-lg border border-neon/50 bg-neon/10 flex items-center justify-center shadow-[0_0_10px_rgba(57,255,20,0.2)] overflow-hidden">
+              <img 
+                src="https://scontent.fhio3-1.fna.fbcdn.net/v/t39.30808-6/667811200_1538629201606585_8881277795055746252_n.jpg?_nc_cat=111&ccb=1-7&_nc_sid=13d280&_nc_ohc=FovZMfSrG5kQ7kNvwGuEWkk&_nc_oc=Adq8wk2KBQDn_WFslfwIPbrCcW79_wvD_Txc_iOQUv8NV_450PWe2D_Gqs5dWG5AQYuJaIdd-YMXGyK1KoTqMU9J&_nc_zt=23&_nc_ht=scontent.fhio3-1.fna&_nc_gid=SGvssWbUyPCt9CCcnPIRQA&_nc_ss=7a3a8&oh=00_Af1qMwXuHNEe9T3zJFdGLABOohw0sekmlJsQEpKYPYMQDQ&oe=69DECFDF" 
+                alt="DorkOps Logo" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
             </div>
-            <h1 className="text-2xl font-display font-bold tracking-widest text-neon glow-text uppercase">DorkOps</h1>
+            <h1 className="text-2xl font-display font-bold tracking-widest text-neon glow-text uppercase hidden sm:block">DorkOps</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            {user ? (
+              <button 
+                onClick={logOut}
+                className="flex items-center gap-2 text-sm font-bold text-neon/70 hover:text-neon transition-colors px-3 py-2 rounded-md hover:bg-neon/10 border border-transparent hover:border-neon/30 uppercase tracking-wider"
+                title="Log Out"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            ) : (
+              <button 
+                onClick={signInWithGoogle}
+                className="flex items-center gap-2 text-sm font-bold text-neon/70 hover:text-neon transition-colors px-3 py-2 rounded-md hover:bg-neon/10 border border-transparent hover:border-neon/30 uppercase tracking-wider"
+              >
+                <LogIn className="w-4 h-4" />
+                <span className="hidden sm:inline">Login</span>
+              </button>
+            )}
             <button 
               onClick={() => setIsTutorialOpen(true)}
               className="flex items-center gap-2 text-sm font-bold text-neon/70 hover:text-neon transition-colors px-3 py-2 rounded-md hover:bg-neon/10 border border-transparent hover:border-neon/30 uppercase tracking-wider"
@@ -101,7 +217,7 @@ export default function App() {
               className="flex items-center gap-2 text-sm font-bold text-black transition-colors px-4 py-2 rounded-md bg-neon hover:bg-white border border-neon uppercase tracking-wider shadow-[0_0_10px_rgba(57,255,20,0.4)]"
             >
               <Crown className="w-4 h-4" />
-              <span>Pro</span>
+              <span>{userProfile?.isPro ? "Pro Active" : "Pro"}</span>
             </button>
           </div>
         </div>
@@ -114,8 +230,13 @@ export default function App() {
             Execute <span className="text-neon glow-text">OSINT</span>
           </h2>
           <p className="text-lg text-neon/70 max-w-2xl mx-auto font-sans">
-            Translate plain English into weaponized Google Dorks. Bypass the noise.
+            Translate plain English into Forensic-Grade Google Dorks.
           </p>
+          {user && !userProfile?.isPro && (
+            <div className="text-sm text-neon/50 font-sans">
+              Daily Intel Limit: {userProfile?.dailySearches || 0} / {DAILY_LIMIT}
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleGenerate} className="relative mb-12">
@@ -127,12 +248,12 @@ export default function App() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="> Enter target parameters (e.g., find hidden PDF documents about WWII from gov domains)..."
             className="w-full terminal-input rounded-xl py-4 pl-14 pr-4 text-neon placeholder-neon/30 resize-none min-h-[140px] transition-all"
-            disabled={isGenerating}
+            disabled={isGenerating || !user}
           />
           <div className="absolute bottom-4 right-4">
             <button
               type="submit"
-              disabled={!query.trim() || isGenerating}
+              disabled={!query.trim() || isGenerating || !user}
               className="flex items-center gap-2 bg-neon hover:bg-white disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700 disabled:shadow-none text-black px-6 py-2.5 rounded-lg font-bold transition-all uppercase tracking-widest border border-neon shadow-[0_0_15px_rgba(57,255,20,0.3)]"
             >
               {isGenerating ? (
@@ -149,6 +270,12 @@ export default function App() {
             </button>
           </div>
         </form>
+
+        {!user && (
+          <div className="mb-8 p-4 bg-black/60 border border-neon/30 rounded-xl text-neon/80 text-center font-sans">
+            Authentication required. <button onClick={signInWithGoogle} className="text-neon hover:underline font-bold">Log in with Google</button> to access the terminal.
+          </div>
+        )}
 
         {error && (
           <div className="mb-8 p-4 bg-red-900/20 border border-red-500/50 rounded-xl text-red-400 text-center font-sans">
@@ -216,7 +343,7 @@ export default function App() {
 
       {/* Modals */}
       <TutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
-      <SubscriptionModal isOpen={isSubOpen} onClose={() => setIsSubOpen(false)} />
+      <SubscriptionModal isOpen={isSubOpen} onClose={() => setIsSubOpen(false)} user={user} />
     </div>
   );
 }
