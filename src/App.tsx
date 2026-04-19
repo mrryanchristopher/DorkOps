@@ -1,12 +1,24 @@
 import React, { useState, FormEvent, useEffect } from "react";
-import { Terminal, Sparkles, BookOpen, Crown, Loader2, ShieldAlert, LogIn, LogOut } from "lucide-react";
+import { Terminal, Sparkles, BookOpen, Crown, Loader2, ShieldAlert, LogIn, LogOut, Bookmark } from "lucide-react";
 import { GoogleGenAI, Type } from "@google/genai";
 import { TutorialModal } from "./components/TutorialModal";
 import { SubscriptionModal } from "./components/SubscriptionModal";
+import { SavedDorksModal } from "./components/SavedDorksModal";
+import { LiveSearchModal } from "./components/LiveSearchModal";
 import { DorkResult } from "./components/DorkResult";
 import { auth, db, signInWithGoogle, logOut } from "./firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
+
+declare global {
+  interface Window {
+    AndroidRevenueCat?: {
+      checkEntitlement: () => void;
+      presentPaywall: () => void;
+    };
+    onEntitlementResult?: (isPro: boolean) => void;
+  }
+}
 
 // Initialize Gemini API in the frontend
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -16,11 +28,14 @@ const DAILY_LIMIT = 5;
 export default function App() {
   const [query, setQuery] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [results, setResults] = useState<{ dorks: string[]; instructions: string; tips: string[] } | null>(null);
+  const [results, setResults] = useState<{ dorks: string[]; instructions: string; tips: string[]; intent: string } | null>(null);
   const [error, setError] = useState("");
   
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isSubOpen, setIsSubOpen] = useState(false);
+  const [isSavedOpen, setIsSavedOpen] = useState(false);
+  
+  const [liveSearchDork, setLiveSearchDork] = useState<string | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -70,7 +85,14 @@ export default function App() {
       // Then listen for real-time updates
       const unsubscribeSnapshot = onSnapshot(userRef, (docSnap) => {
         if (docSnap.exists()) {
-          setUserProfile(docSnap.data());
+          const data = docSnap.data();
+          setUserProfile(data);
+          
+          // Check RevenueCat entitlement if we are in the Android wrapper
+          // We only check if Firestore says they are NOT Pro, to see if they bought it recently
+          if (!data.isPro && typeof window !== "undefined" && window.AndroidRevenueCat) {
+             window.AndroidRevenueCat.checkEntitlement();
+          }
         }
         setIsAuthReady(true);
       }, (error) => {
@@ -82,6 +104,20 @@ export default function App() {
     });
 
   }, [user]);
+
+  // Global listener for the entitlement check result from Android
+  useEffect(() => {
+    window.onEntitlementResult = async (isPro: boolean) => {
+      if (isPro && user && userProfile && !userProfile.isPro) {
+        // RevenueCat says they are Pro, but Firestore says they aren't. Sync it!
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, { isPro: true });
+      }
+    };
+    return () => {
+      delete window.onEntitlementResult;
+    };
+  }, [user, userProfile]);
 
   const handleGenerate = async (e: FormEvent) => {
     e.preventDefault();
@@ -105,12 +141,12 @@ export default function App() {
     try {
       const response = await ai.models.generateContent({
         model: userProfile?.isPro ? "gemini-3.1-pro-preview" : "gemini-3-flash-preview",
-        contents: `Translate the following plain English search intent into 3 to 5 highly precise Google Dorks. 
+        contents: `Translate the following plain English search intent into 3 to 5 highly precise OSINT Dorks compatible with major search engines (Google, DuckDuckGo, Brave, Bing). 
         Include advanced operators (site:, filetype:, inurl:, intitle:, etc.) and boolean logic where needed.
         
         Search Intent: "${query}"`,
         config: {
-          systemInstruction: "You are an expert OSINT researcher and Google Dorking master. Your job is to translate plain English into precise Google Dorks. Return the result as JSON.",
+          systemInstruction: "You are an expert OSINT researcher. Your job is to translate plain English into precise search engine dorks. Return the result as JSON.",
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -118,7 +154,7 @@ export default function App() {
               dorks: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: "3 to 5 precise Google Dorks.",
+                description: "3 to 5 precise OSINT Dorks.",
               },
               instructions: {
                 type: Type.STRING,
@@ -141,7 +177,7 @@ export default function App() {
       }
 
       const jsonResult = JSON.parse(resultText);
-      setResults(jsonResult);
+      setResults({ ...jsonResult, intent: query });
 
       // Increment usage
       if (userProfile && !userProfile.isPro) {
@@ -178,7 +214,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg border border-neon/50 bg-neon/10 flex items-center justify-center shadow-[0_0_10px_rgba(57,255,20,0.2)] overflow-hidden">
               <img 
-                src="https://scontent.fhio3-1.fna.fbcdn.net/v/t39.30808-6/667811200_1538629201606585_8881277795055746252_n.jpg?_nc_cat=111&ccb=1-7&_nc_sid=13d280&_nc_ohc=FovZMfSrG5kQ7kNvwGuEWkk&_nc_oc=Adq8wk2KBQDn_WFslfwIPbrCcW79_wvD_Txc_iOQUv8NV_450PWe2D_Gqs5dWG5AQYuJaIdd-YMXGyK1KoTqMU9J&_nc_zt=23&_nc_ht=scontent.fhio3-1.fna&_nc_gid=SGvssWbUyPCt9CCcnPIRQA&_nc_ss=7a3a8&oh=00_Af1qMwXuHNEe9T3zJFdGLABOohw0sekmlJsQEpKYPYMQDQ&oe=69DECFDF" 
+                src="https://cdn.buymeacoffee.com/uploads/gallery/9959663/2026-04-13/DorkOps.png" 
                 alt="DorkOps Logo" 
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
@@ -188,14 +224,24 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             {user ? (
-              <button 
-                onClick={logOut}
-                className="flex items-center gap-2 text-sm font-bold text-neon/70 hover:text-neon transition-colors px-3 py-2 rounded-md hover:bg-neon/10 border border-transparent hover:border-neon/30 uppercase tracking-wider"
-                title="Log Out"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
+              <>
+                <button 
+                  onClick={() => setIsSavedOpen(true)}
+                  className="flex items-center gap-2 text-sm font-bold text-neon/70 hover:text-neon transition-colors px-3 py-2 rounded-md hover:bg-neon/10 border border-transparent hover:border-neon/30 uppercase tracking-wider"
+                  title="Saved Intel"
+                >
+                  <Bookmark className="w-4 h-4" />
+                  <span className="hidden sm:inline">Saved</span>
+                </button>
+                <button 
+                  onClick={logOut}
+                  className="flex items-center gap-2 text-sm font-bold text-neon/70 hover:text-neon transition-colors px-3 py-2 rounded-md hover:bg-neon/10 border border-transparent hover:border-neon/30 uppercase tracking-wider"
+                  title="Log Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </>
             ) : (
               <button 
                 onClick={signInWithGoogle}
@@ -230,7 +276,7 @@ export default function App() {
             Execute <span className="text-neon glow-text">OSINT</span>
           </h2>
           <p className="text-lg text-neon/70 max-w-2xl mx-auto font-sans">
-            Translate plain English into Forensic-Grade Google Dorks.
+            Translate plain English into Forensic-Grade OSINT Dorks (Google, DuckDuckGo, Brave).
           </p>
           {user && !userProfile?.isPro && (
             <div className="text-sm text-neon/50 font-sans">
@@ -292,7 +338,13 @@ export default function App() {
               </h3>
               <div className="space-y-3 pl-11">
                 {results.dorks.map((dork, i) => (
-                  <DorkResult key={i} dork={dork} />
+                  <DorkResult 
+                    key={i} 
+                    dork={dork} 
+                    intent={results.intent} 
+                    user={user} 
+                    onLiveSearch={(d) => setLiveSearchDork(d)}
+                  />
                 ))}
               </div>
             </section>
@@ -344,6 +396,13 @@ export default function App() {
       {/* Modals */}
       <TutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
       <SubscriptionModal isOpen={isSubOpen} onClose={() => setIsSubOpen(false)} user={user} />
+      <SavedDorksModal isOpen={isSavedOpen} onClose={() => setIsSavedOpen(false)} user={user} />
+      <LiveSearchModal 
+        isOpen={!!liveSearchDork} 
+        onClose={() => setLiveSearchDork(null)} 
+        dork={liveSearchDork || ""} 
+        intent={results?.intent || ""} 
+      />
     </div>
   );
 }

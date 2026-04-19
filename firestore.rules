@@ -61,6 +61,13 @@ service cloud.firestore {
              data.lastSearchDate is string && isValidDateString(data.lastSearchDate);
     }
 
+    function isValidSavedDork(data) {
+      return hasOnlyAllowedFields(['dork', 'intent', 'createdAt']) &&
+             data.dork is string && data.dork.size() > 0 && data.dork.size() < 1000 &&
+             data.intent is string && data.intent.size() > 0 && data.intent.size() < 1000 &&
+             data.createdAt is string; // Basic string check for ISO timestamp
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -83,6 +90,12 @@ service cloud.firestore {
                     isValidUser(request.resource.data) && 
                     uidNotModified() &&
                     request.resource.data.email == resource.data.email;
+                    
+      match /savedDorks/{dorkId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSavedDork(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
     }
   }
 }
