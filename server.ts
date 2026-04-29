@@ -3,51 +3,31 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import path from "path";
+import admin from "firebase-admin";
+
+// Initialize Firebase Admin
+if (!admin.apps.length) {
+  try {
+    const serviceAccount = JSON.parse(
+      process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "{}"
+    );
+    if (Object.keys(serviceAccount).length > 0) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+    } else {
+      console.warn("FIREBASE_SERVICE_ACCOUNT_JSON not provided. Server-side Firestore updates will fail.");
+    }
+  } catch (error) {
+    console.error("Failed to initialize Firebase Admin:", error);
+  }
+}
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
-
-  // Initialize Gemini API
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-  app.get("/api/check-env", (req, res) => {
-    res.json({
-      hasKey: !!process.env.GEMINI_API_KEY,
-      keyLength: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0,
-      keyStart: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 4) : "N/A"
-    });
-  });
-
-  // API Route: Verify Google Play Purchase (Mock)
-  app.post("/api/verify-purchase", async (req, res) => {
-    try {
-      const { purchaseToken, productId } = req.body;
-      if (!purchaseToken || !productId) {
-        return res.status(400).json({ error: "purchaseToken and productId are required" });
-      }
-
-      // Mock verification logic for Google Play Developer API
-      // In a real app, you would call the Google Play Developer API here
-      // using googleapis package and a service account.
-      console.log(`Verifying purchase for product: ${productId} with token: ${purchaseToken}`);
-      
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      res.json({
-        success: true,
-        message: "Purchase verified successfully",
-        subscriptionState: "ACTIVE",
-        expiryTimeMillis: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days from now
-      });
-    } catch (error) {
-      console.error("Error verifying purchase:", error);
-      res.status(500).json({ error: "Failed to verify purchase" });
-    }
-  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

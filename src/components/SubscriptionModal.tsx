@@ -1,62 +1,67 @@
-import { X, CheckCircle2, ShieldAlert } from "lucide-react";
-import { User } from "firebase/auth";
+import React from "react";
+import { X, CheckCircle2, Zap } from "lucide-react";
 
-export function SubscriptionModal({ isOpen, onClose, user }: { isOpen: boolean; onClose: () => void; user: User | null }) {
+export function SubscriptionModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-black/90 border border-neon/50 rounded-xl shadow-[0_0_30px_rgba(57,255,20,0.2)] w-full max-w-md overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center p-6 border-b border-neon/30">
+      <div className="bg-black/95 border border-purple/50 rounded-xl shadow-[0_0_40px_rgba(139,92,246,0.2)] w-full max-w-md overflow-hidden flex flex-col">
+        <div className="flex justify-between items-center p-6 border-b border-purple/30 bg-purple/5">
           <div className="flex items-center gap-3">
-            <ShieldAlert className="w-6 h-6 text-neon" />
-            <h2 className="text-2xl font-display font-bold text-neon uppercase tracking-widest glow-text">DorkOps Pro</h2>
+            <Zap className="w-6 h-6 text-pop glow-pop animate-pulse" />
+            <h2 className="text-2xl font-display font-bold text-pop uppercase tracking-widest glow-pop">DorkOps Pro</h2>
           </div>
-          <button onClick={onClose} className="text-neon/50 hover:text-neon transition-colors">
+          <button onClick={onClose} className="text-pop/50 hover:text-pop transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
         
-        <div className="p-6 text-neon/80 space-y-6 font-sans">
+        <div className="p-6 text-slate-300 space-y-6 font-sans">
           <div className="text-center space-y-2">
-            <p className="text-neon text-lg font-bold">Unleash the full potential of your OSINT research.</p>
-            <p className="text-neon/70 text-sm">Download the official DorkOps mobile application to upgrade your terminal access.</p>
+            <p className="text-white text-lg font-bold">Advance Your Intel Operations.</p>
+            <p className="text-slate-400 text-sm">Unlock forensic-grade search capabilities and the tactical payload library.</p>
           </div>
 
-          <ul className="space-y-4 bg-black/60 p-4 border border-neon/20 rounded-lg shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]">
+          <ul className="space-y-4 bg-black/60 p-4 border border-purple/20 rounded-lg shadow-[inset_0_0_15px_rgba(0,0,0,0.8)]">
             <li className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-neon flex-shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-5 h-5 text-pop flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-white block">Unlimited Intel Generation</span>
-                <span className="text-xs text-neon/60">Bypass the daily web limits and generate endless forensic-grade dorks.</span>
+                <span className="font-bold text-white block">Chain Mode Logic</span>
+                <span className="text-xs text-slate-400">Multi-step automated generation of sequential searching parameters.</span>
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-neon flex-shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-5 h-5 text-pop flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-white block">Gemini 3.1 Pro Reasoning</span>
-                <span className="text-xs text-neon/60">Unlock Google's flagship reasoning model for hyper-advanced boolean logic mapping.</span>
+                <span className="font-bold text-white block">Gemini 3.1 Pro Node</span>
+                <span className="text-xs text-slate-400">Upgrade to the flagship intelligence engine for complex boolean dorks.</span>
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-neon flex-shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-5 h-5 text-pop flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-white block">Offline Intel Vault</span>
-                <span className="text-xs text-neon/60">Native storage and organization of your most critical payload strings.</span>
+                <span className="font-bold text-white block">Tactical Library</span>
+                <span className="text-xs text-slate-400">Access pre-built OSINT dorks for infrastructure, cloud, and DB assets.</span>
               </div>
             </li>
           </ul>
         </div>
         
-        <div className="p-6 border-t border-neon/30 bg-black">
+        <div className="p-6 border-t border-purple/30 bg-black/40 flex flex-col items-center gap-4">
           <a 
             href="https://play.google.com/store/apps/developer?id=Media+Multi-Tool+Ai"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full py-3 bg-neon hover:bg-white text-black font-bold rounded-lg transition-all flex items-center justify-center gap-2 uppercase tracking-widest border border-neon shadow-[0_0_15px_rgba(57,255,20,0.3)]"
+            className="w-full py-4 bg-pop hover:bg-white text-black font-bold rounded-lg transition-all flex items-center justify-center gap-3 uppercase tracking-widest border border-pop shadow-[0_0_20px_rgba(255,0,255,0.4)]"
           >
-            Get Pro on Google Play
+            <Zap className="w-5 h-5" />
+            Get Pro on Play Store
           </a>
+          <p className="text-[10px] text-center text-slate-500 uppercase tracking-tighter">
+            Full terminal access available via the mobile app
+          </p>
         </div>
       </div>
     </div>

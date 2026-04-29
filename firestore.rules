@@ -1,59 +1,49 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
     // ===============================================================
-    // Assumed Data Model
+    // Global Safety Net
     // ===============================================================
-    //
-    // Collection: users
-    // Document ID: {userId}
-    // Fields:
-    //   - uid: string (required, immutable) - User ID
-    //   - email: string (required, immutable) - User email
-    //   - isPro: boolean (required) - Subscription status
-    //   - dailySearches: number (required) - Number of searches today
-    //   - lastSearchDate: string (required) - Date of last search (YYYY-MM-DD)
-    //
-    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
     // ===============================================================
-    // Helper Functions
+    // Helper Functions (Phase 3: Primitives)
     // ===============================================================
     
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
     
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
-    
-    function uidUnchanged() {
-      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+
+    function incoming() {
+      return request.resource.data;
     }
-    
-    function uidNotModified() {
-      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+
+    function existing() {
+      return resource.data;
     }
-    
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
-    
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-    
+
     function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+      return email is string && (email.size() == 0 || email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"));
     }
 
     function isValidDateString(dateStr) {
       return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}$");
     }
 
+    // Validation Blueprint for User
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'isPro', 'dailySearches', 'lastSearchDate']) &&
+      return data.keys().hasAll(['uid', 'email', 'isPro', 'dailySearches', 'lastSearchDate']) &&
              data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
              data.email is string && isValidEmail(data.email) && data.email.size() < 150 &&
              data.isPro is bool &&
@@ -61,40 +51,59 @@ service cloud.firestore {
              data.lastSearchDate is string && isValidDateString(data.lastSearchDate);
     }
 
+    // Helper to check for timestamp
+    function isTimestamp(val) {
+      return val is timestamp;
+    }
+
+    // Validation Blueprint for SavedDork
     function isValidSavedDork(data) {
-      return hasOnlyAllowedFields(['dork', 'intent', 'createdAt']) &&
-             data.dork is string && data.dork.size() > 0 && data.dork.size() < 1000 &&
-             data.intent is string && data.intent.size() > 0 && data.intent.size() < 1000 &&
-             data.createdAt is string; // Basic string check for ISO timestamp
+      return data.keys().hasAll(['dork', 'intent', 'createdAt']) &&
+             data.keys().size() == 3 &&
+             data.dork is string && data.dork.size() > 0 && data.dork.size() < 2000 &&
+             data.intent is string && data.intent.size() > 0 && data.intent.size() < 2000 &&
+             data.createdAt is string && data.createdAt.size() > 0 && data.createdAt.size() < 100;
     }
 
     // ===============================================================
-    // Rules
+    // Rules (Match blocks)
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      // Identity Poisoning Guard
+      allow get: if isOwner(userId) && isValidId(userId);
+      // List query security (Query Enforcer)
+      allow list: if isOwner(userId);
       
-      // Allow user to create their own profile. isPro must be false initially.
+      // CREATE: Strictly enforced schema
       allow create: if isOwner(userId) && 
-                    isValidUser(request.resource.data) && 
-                    uidUnchanged() &&
-                    request.resource.data.uid == userId &&
-                    request.resource.data.isPro == false &&
-                    request.resource.data.dailySearches == 0;
+                    isValidId(userId) &&
+                    isValidUser(incoming()) && 
+                    incoming().uid == userId &&
+                    incoming().isPro == false &&
+                    incoming().dailySearches == 0;
                     
-      // Allow user to update their own profile.
-      // Note: Ideally, isPro should only be updated by a secure backend. 
-      // For this prototype, we allow the owner to update it to simulate the purchase flow.
+      // UPDATE: Action-Based Update Pattern (Tactical Expansion)
       allow update: if isOwner(userId) && 
-                    isValidUser(request.resource.data) && 
-                    uidNotModified() &&
-                    request.resource.data.email == resource.data.email;
-                    
+                    isValidId(userId) &&
+                    isValidUser(incoming()) && 
+                    incoming().uid == existing().uid &&
+                    incoming().email == existing().email &&
+                    (
+                      // Tactical Sync: Allow simultaneous search, status, and metadata updates
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['dailySearches', 'lastSearchDate', 'updatedAt', 'emailVerified', 'createdAt', 'isPro']))
+                    );
+
       match /savedDorks/{dorkId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidSavedDork(request.resource.data);
-        allow delete: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(dorkId);
+        // Secure List Queries
+        allow list: if isOwner(userId);
+        
+        allow create: if isOwner(userId) && 
+                      isValidId(dorkId) &&
+                      isValidSavedDork(incoming());
+                      
+        allow delete: if isOwner(userId) && isValidId(dorkId);
       }
     }
   }

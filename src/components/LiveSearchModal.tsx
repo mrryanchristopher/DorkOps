@@ -29,7 +29,7 @@ export function LiveSearchModal({ isOpen, onClose, dork, intent }: LiveSearchMod
   }, [isOpen, dork]);
 
   const performSearch = async () => {
-    const apiKey = import.meta.env.VITE_BRAVE_SEARCH_API_KEY;
+    const apiKey = (import.meta as any).env.VITE_BRAVE_SEARCH_API_KEY;
 
     if (!apiKey) {
       setError("missing_keys");

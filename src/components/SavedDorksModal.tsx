@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Copy, Check, Trash2, Loader2, Search } from "lucide-react";
+import { X, Copy, Check, Trash2, Loader2, Search, FileJson, FileText } from "lucide-react";
 import { User } from "firebase/auth";
 import { collection, query, orderBy, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../firebase";
@@ -62,17 +62,55 @@ export function SavedDorksModal({ isOpen, onClose, user }: { isOpen: boolean; on
     }
   };
 
+  const exportData = (format: 'json' | 'csv') => {
+    const dataToExport = dorks;
+    let content = format === 'json' 
+      ? JSON.stringify(dataToExport, null, 2) 
+      : [["ID", "Intent", "Dork"], ...dataToExport.map(d => [d.id, d.intent, d.dork])].map(r => r.join(",")).join("\n");
+    
+    const blob = new Blob([content], { type: format === 'json' ? "application/json" : "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `intel_export.${format}`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!isOpen) return null;
 
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-        <div className="bg-black/90 border border-neon/50 rounded-xl shadow-[0_0_30px_rgba(57,255,20,0.2)] w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <div className="flex justify-between items-center p-6 border-b border-neon/30">
-            <h2 className="text-2xl font-display font-bold text-neon uppercase tracking-widest glow-text">Saved Intel</h2>
-            <button onClick={onClose} className="text-neon/50 hover:text-neon transition-colors">
-              <X className="w-6 h-6" />
-            </button>
+        <div className="bg-black/90 border border-purple/50 rounded-xl shadow-[0_0_30px_rgba(139,92,246,0.2)] w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="flex justify-between items-center p-6 border-b border-purple/30 bg-purple/5">
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-display font-bold text-pop uppercase tracking-widest glow-pop">Saved Intel</h2>
+              <span className="text-[10px] px-2 py-0.5 rounded border border-pop/50 text-pop font-bold uppercase tracking-tighter">Pro Assets</span>
+            </div>
+            <div className="flex items-center gap-4">
+              {dorks.length > 0 && (
+                <div className="flex items-center gap-2 border-r border-purple/30 pr-4">
+                  <button 
+                    onClick={() => exportData('json')}
+                    className="flex items-center gap-1.5 text-[10px] font-bold text-pop/70 hover:text-pop transition-colors uppercase tracking-widest"
+                  >
+                    <FileJson className="w-3.5 h-3.5" />
+                    JSON
+                  </button>
+                  <button 
+                    onClick={() => exportData('csv')}
+                    className="flex items-center gap-1.5 text-[10px] font-bold text-pop/70 hover:text-pop transition-colors uppercase tracking-widest"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    CSV
+                  </button>
+                </div>
+              )}
+              <button onClick={onClose} className="text-pop/50 hover:text-pop transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
           
           <div className="p-6 overflow-y-auto flex-1 font-sans">

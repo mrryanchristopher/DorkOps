@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Copy, Check, Bookmark, BookmarkCheck, Search } from "lucide-react";
 import { User } from "firebase/auth";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, FirestoreError } from "firebase/firestore";
 import { db } from "../firebase";
 
 export const DorkResult: React.FC<{ 
@@ -36,8 +36,11 @@ export const DorkResult: React.FC<{
         createdAt: new Date().toISOString()
       });
       setSaved(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save dork: ", err);
+      if (err instanceof FirestoreError && err.code === 'permission-denied') {
+        console.error("CRITICAL PERMISSION ERROR: Saving dork failed for Path:", `users/${user.uid}/savedDorks`, "User:", user.uid);
+      }
     } finally {
       setIsSaving(false);
     }
