@@ -51,7 +51,7 @@ export function SubscriptionModal({ isOpen, onClose }: { isOpen: boolean; onClos
         
         <div className="p-6 border-t border-purple/30 bg-black/40 flex flex-col items-center gap-4">
           <a 
-            href="https://play.google.com/store/apps/developer?id=Media+Multi-Tool+Ai"
+            href="https://play.google.com/store/search?q=pub:Media+Multi-Tool+LLC&c=apps"
             target="_blank"
             rel="noopener noreferrer"
             className="w-full py-4 bg-pop hover:bg-white text-black font-bold rounded-lg transition-all flex items-center justify-center gap-3 uppercase tracking-widest border border-pop shadow-[0_0_20px_rgba(255,0,255,0.4)]"
