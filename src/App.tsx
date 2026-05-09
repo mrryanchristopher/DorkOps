@@ -8,7 +8,7 @@ import { LiveSearchModal } from "./components/LiveSearchModal";
 import { DorkResult } from "./components/DorkResult";
 import { TacticalLibrary } from "./components/TacticalLibrary";
 import { auth, db, signInWithGoogle, logOut } from "./firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, User, getRedirectResult } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, FirestoreError } from "firebase/firestore";
 
 interface FirestoreErrorInfo {
@@ -74,6 +74,16 @@ export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
+    // Handle the result of a sign-in redirect
+    getRedirectResult(auth).then((result) => {
+      if (result?.user) {
+        console.log("Authentication redirect successful:", result.user.email);
+      }
+    }).catch((error) => {
+      console.error("Authentication redirect error:", error);
+      setError(`[AUTH_FAULT]: Redirect authentication failed: ${error.message}`);
+    });
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (!currentUser) {
