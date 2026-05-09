@@ -60,7 +60,7 @@ export const TacticalLibrary: React.FC<TacticalLibraryProps> = ({ onSelect, isPr
         <Zap className="w-12 h-12 text-purple/50 animate-pulse" />
         <h3 className="text-xl font-display font-bold text-white uppercase tracking-widest">Tactical Library</h3>
         <p className="text-slate-400 text-sm font-sans max-w-[200px]">
-          Upgrade to <a href="https://play.google.com/store/apps/developer?id=Media+Multi-Tool+Ai" target="_blank" rel="noopener noreferrer" className="text-pop font-bold hover:underline">PRO</a> to access the automated OSINT payload library.
+          Upgrade to <a href="https://play.google.com/store/search?q=pub:Media+Multi-Tool+LLC&c=apps" target="_blank" rel="noopener noreferrer" className="text-pop font-bold hover:underline">PRO</a> to access the automated OSINT payload library.
         </p>
       </div>
     );

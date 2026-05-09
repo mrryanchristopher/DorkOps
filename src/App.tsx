@@ -302,7 +302,7 @@ export default function App() {
             )}
             {!userProfile?.isPro && (
               <a 
-                href="https://play.google.com/store/apps/developer?id=Media+Multi-Tool+Ai"
+                href="https://play.google.com/store/search?q=pub:Media+Multi-Tool+LLC&c=apps"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-xs font-black text-black transition-all px-5 py-2.5 rounded-lg bg-neon hover:bg-white border border-neon uppercase tracking-tighter shadow-[0_0_15px_rgba(57,255,20,0.4)]"
@@ -466,7 +466,7 @@ export default function App() {
             © {new Date().getFullYear()} DorkOps. All rights reserved.
           </p>
           <p className="text-neon/50 text-sm font-sans">
-            Created by <a href="https://mediamultitool.com" target="_blank" rel="noopener noreferrer" className="text-neon hover:text-white hover:underline transition-colors glow-text">Media Multi-Tool</a>
+            Created by <a href="https://mediamultitool.com" target="_blank" rel="noopener noreferrer" className="text-neon hover:text-white hover:underline transition-colors glow-text">Media Multi-Tool LLC</a>
           </p>
         </div>
       </footer>
